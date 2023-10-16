@@ -20,7 +20,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -28,55 +27,34 @@ import (
 )
 
 type FileExecutableInfo struct {
-	wordCount  bool
-	lineCount  bool
-	charCount  bool
-	bytesCount bool
-	filePath   string
+	wordCount bool
+	lineCount bool
+	charCount bool
+	filePath  []string
 }
 
 var fileExecutable FileExecutableInfo
 
-func extractFileData() string {
-	filePath := os.Args[len(os.Args)-1]
+func extractFileData(filePath string) (string, error) {
 	dat, err := os.ReadFile(filePath)
-
-	if err != nil {
-		reader := bufio.NewReader(os.Stdin)
-		text, _ := reader.ReadString(io.SeekEnd)
-		return text
-	} else {
-		fileExecutable.filePath = filePath
-		return string(dat)
+	if len(fileExecutable.filePath) >= 1 {
+		if err != nil {
+			return string(dat), err
+		}
 	}
+	if err != nil {
+		text, _ := io.ReadAll(os.Stdin)
+		return string(text), nil
+	}
+	return string(dat), nil
+
 }
 
-func formatResponse(data string) {
-
-	flagsArgs := os.Args
+func formatResponse(data string) string {
 
 	var result string
 
-	for i := 1; i < len(flagsArgs); i++ {
-		if flagsArgs[i] == "-l" { //line count
-			fileExecutable.lineCount = true
-		} else if flagsArgs[i] == "-c" { //no of bytes
-			fileExecutable.bytesCount = true
-		} else if flagsArgs[i] == "-w" { //word count
-			fileExecutable.wordCount = true
-
-		} else if flagsArgs[i] == "-m" { //char count
-			fileExecutable.charCount = true
-		} else {
-			if i == 1 {
-				fileExecutable.lineCount = true
-				fileExecutable.wordCount = true
-				fileExecutable.charCount = true
-			}
-		}
-	}
-
-	if !fileExecutable.lineCount && !fileExecutable.bytesCount && !fileExecutable.wordCount && !fileExecutable.charCount { //default behaviour when used with standard input
+	if !fileExecutable.lineCount && !fileExecutable.wordCount && !fileExecutable.charCount { //default behaviour when used with standard input
 		fileExecutable.lineCount = true
 		fileExecutable.wordCount = true
 		fileExecutable.charCount = true
@@ -99,17 +77,47 @@ func formatResponse(data string) {
 		result = result + " " + fmt.Sprint(len([]rune(data)))
 	}
 
-	if fileExecutable.bytesCount {
-		result = result + " " + fmt.Sprint(len(data))
+	return result
+}
+
+func parseArguements() {
+	flagsArgs := os.Args
+
+	for i := 1; i < len(flagsArgs); i++ {
+		if flagsArgs[i] == "-l" && !fileExecutable.lineCount { //line count
+			fileExecutable.lineCount = true
+		} else if flagsArgs[i] == "-w" && !fileExecutable.wordCount { //word count
+			fileExecutable.wordCount = true
+
+		} else if flagsArgs[i] == "-m" && !fileExecutable.charCount { //char count
+			fileExecutable.charCount = true
+		} else {
+
+			fileExecutable.filePath = append(fileExecutable.filePath, flagsArgs[i])
+
+		}
 	}
 
-	result = result + " " + fileExecutable.filePath
-
-	fmt.Println(result)
 }
 
 func main() {
 
-	formatResponse(extractFileData())
+	parseArguements()
+	if len(fileExecutable.filePath) == 0 {
+		data, _ := extractFileData(" ")
+		result := formatResponse(data)
+		fmt.Println(result + " ")
+	} else {
+		for i := 0; i < len(fileExecutable.filePath); i++ {
+			data, err := extractFileData(fileExecutable.filePath[i])
+			if err != nil {
+				fmt.Println("NO FILE FOUND")
+				continue
+			}
+			result := formatResponse(data)
+
+			fmt.Println(result + " " + fileExecutable.filePath[i])
+		}
+	}
 
 }
