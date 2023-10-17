@@ -2,7 +2,6 @@
  -l to count number of lines
  -w to count number of words
  -m to count number of chars
- -c to count number of bytes
 
  If command is called on itself then after flag, filepath should be provided
 
@@ -15,6 +14,12 @@
  Command should be in this pattern "command flags filepath"
 
  In standard input, the file will handle the standard input if no path is provided
+
+ Multiple file path can be executed with the path provided.
+
+ If one path fails other result shall be seen
+
+ In the end the total number of lines, words, and chars should be displayed
 */
 
 package main
@@ -23,17 +28,21 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
 type FileExecutableInfo struct {
-	wordCount bool
-	lineCount bool
-	charCount bool
-	filePath  []string
+	wordCount      bool
+	lineCount      bool
+	charCount      bool
+	filePath       []string
+	filePathResult [][]string
+	flagCount      int
 }
 
 var fileExecutable FileExecutableInfo
+var total []int
 
 func extractFileData(filePath string) (string, error) {
 	dat, err := os.ReadFile(filePath)
@@ -50,18 +59,19 @@ func extractFileData(filePath string) (string, error) {
 
 }
 
-func formatResponse(data string) string {
+func formatResponse(data string) []string {
 
-	var result string
+	var result []string
 
 	if !fileExecutable.lineCount && !fileExecutable.wordCount && !fileExecutable.charCount { //default behaviour when used with standard input
 		fileExecutable.lineCount = true
 		fileExecutable.wordCount = true
 		fileExecutable.charCount = true
+		fileExecutable.flagCount = 3
 	}
 
 	if fileExecutable.lineCount {
-		result = result + " " + fmt.Sprint((len(strings.Split(data, "\n"))))
+		result = append(result, fmt.Sprint((len(strings.Split(data, "\n")))))
 	}
 
 	if fileExecutable.wordCount {
@@ -70,11 +80,11 @@ func formatResponse(data string) string {
 		for counter != len(words) {
 			counter++
 		}
-		result = result + " " + fmt.Sprint(counter)
+		result = append(result, fmt.Sprint(counter))
 	}
 
 	if fileExecutable.charCount {
-		result = result + " " + fmt.Sprint(len([]rune(data)))
+		result = append(result, fmt.Sprint(len([]rune(data))))
 	}
 
 	return result
@@ -86,18 +96,43 @@ func parseArguements() {
 	for i := 1; i < len(flagsArgs); i++ {
 		if flagsArgs[i] == "-l" && !fileExecutable.lineCount { //line count
 			fileExecutable.lineCount = true
+			fileExecutable.flagCount++
 		} else if flagsArgs[i] == "-w" && !fileExecutable.wordCount { //word count
 			fileExecutable.wordCount = true
-
+			fileExecutable.flagCount++
 		} else if flagsArgs[i] == "-m" && !fileExecutable.charCount { //char count
 			fileExecutable.charCount = true
+			fileExecutable.flagCount++
 		} else {
-
 			fileExecutable.filePath = append(fileExecutable.filePath, flagsArgs[i])
-
 		}
 	}
 
+}
+
+func convertArrayToString(s []string, postfix string) {
+	fmt.Println(strings.Join([]string(s), " ") + " " + postfix)
+}
+
+func getTotal(s [][]string) []string {
+
+	arrayLength := len(fileExecutable.filePathResult[0]) - 1
+	var total = make([]int, arrayLength)
+
+	for _, element := range s {
+		for i := 0; i < arrayLength; i++ {
+			num, _ := strconv.Atoi(element[i])
+			total[i] = total[i] + num
+		}
+	}
+
+	var totalString = make([]string, len(total))
+	// convert int array to string array
+	for i := 0; i < len(total); i++ {
+		totalString[i] = fmt.Sprint(total[i])
+	}
+
+	return totalString
 }
 
 func main() {
@@ -106,7 +141,7 @@ func main() {
 	if len(fileExecutable.filePath) == 0 {
 		data, _ := extractFileData(" ")
 		result := formatResponse(data)
-		fmt.Println(result + " ")
+		convertArrayToString(result, "")
 	} else {
 		for i := 0; i < len(fileExecutable.filePath); i++ {
 			data, err := extractFileData(fileExecutable.filePath[i])
@@ -116,8 +151,14 @@ func main() {
 			}
 			result := formatResponse(data)
 
-			fmt.Println(result + " " + fileExecutable.filePath[i])
-		}
-	}
+			result = append(result, fileExecutable.filePath[i])
+			convertArrayToString(result, "")
 
+			fileExecutable.filePathResult = append(fileExecutable.filePathResult, result)
+		}
+
+		total := getTotal(fileExecutable.filePathResult)
+
+		convertArrayToString(total, "TOTAL")
+	}
 }
